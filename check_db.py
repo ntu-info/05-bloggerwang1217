@@ -119,6 +119,26 @@ def main():
         run(conn, "SHOW server_version;", "server_version", summary, "env.server_version")
         run(conn, "SELECT current_database();", "current database", summary, "env.current_database")
 
+        # Diagnostic: show current user and search_path for this session
+        run(conn, "SELECT current_user, session_user;", "current user", summary, "env.current_user")
+        run(conn, "SHOW search_path;", "search_path (before)", summary, "env.search_path_before")
+
+        # Ensure this session can see schemas that host installed extensions.
+        # Query pg_extension for installed extension schemas and prepend them to search_path.
+        try:
+            rows = conn.execute(text(
+                "SELECT DISTINCT extnamespace::regnamespace::text AS schema_name FROM pg_extension WHERE extnamespace IS NOT NULL;"
+            )).fetchall()
+            ext_schemas = [r[0] for r in rows if r and r[0]]
+            if ext_schemas:
+                # Build new search_path: extension schemas, then public, then pg_catalog
+                sp = ", ".join(ext_schemas + ["public", "pg_catalog"])
+                conn.exec_driver_sql(f"SET search_path TO {sp};")
+                run(conn, "SHOW search_path;", "search_path (after)", summary, "env.search_path_after")
+        except Exception as e:
+            # Don't fail the whole script for search_path adjustment; record error and continue
+            summary["env.search_path_adjust_error"] = {"ok": False, "error": str(e)}
+
         print("\n=== Ensure/verify extensions & run feature tests ===")
         check_tsvector(conn, summary)
         check_pgvector(conn, summary)
