@@ -226,6 +226,16 @@ Notes:
 - Use `VENV_GUNICORN` like `/home/flaskuser/neurosynth-env/bin/gunicorn`.
 - Keep `WorkingDirectory` set to your project root where `app.py` lives.
 
+After reboot
+
+If you enabled the unit with `systemctl enable`, systemd will start it at boot. To verify or (re)start after a reboot run:
+
+```bash
+sudo systemctl status neurosynth.service -l
+# if not running, start it
+sudo systemctl start neurosynth.service
+```
+
 5) Enable and start the service
 
 ```
