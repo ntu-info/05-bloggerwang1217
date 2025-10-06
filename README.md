@@ -5,6 +5,10 @@ A lightweight Flask backend that exposes **functional dissociation** endpoints o
 
 The service provides two APIs that return studies mentioning one concept/coordinate **but not** the other (A \ B). You can also query the opposite direction (B \ A).
 
+Quickly check the app on https://bloggermandolin.com/neurosynth/ !
+
+(Also welcome to checkout my blogL https://bloggermandolin.com/)
+
 ---
 
 ## Table of Contents
