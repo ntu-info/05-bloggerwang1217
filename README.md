@@ -1,7 +1,7 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/SO1PVZ3b)
 # Neurosynth Backend
 
-A lightweight Flask backend that exposes **functional dissociation** endpoints on top of a Neurosynth-backed PostgreSQL database.
+A lightweight Flask backend that exposes **functional dissociation** endpoints on top of a Neurosynth-backend PostgreSQL database.
 
 The service provides two APIs that return studies mentioning one concept/coordinate **but not** the other (A \ B). You can also query the opposite direction (B \ A).
 
@@ -186,6 +186,13 @@ DB_URL='postgresql://<readonly_user>:<StrongPassword>@127.0.0.1:5432/neurosynth'
 ```
 sudo mkdir -p /run/gunicorn
 sudo chown USER:USER /run/gunicorn
+```
+
+While you are hardening the deployment, ensure the environment file remains private:
+
+```
+sudo chmod 600 /etc/default/neurosynth
+sudo chown root:root /etc/default/neurosynth
 ```
 
 USER: System user that will run the service (e.g. `flaskuser`)
