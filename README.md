@@ -123,15 +123,15 @@ After deployment, check the basic endpoints:
 **By terms**
 
 ```bash
-curl https://<your-app>.onrender.com/dissociate/terms/posterior_cingulate/ventromedial_prefrontal
-curl https://<your-app>.onrender.com/dissociate/terms/ventromedial_prefrontal/posterior_cingulate
+curl https://bloggermandolin.com/neurosynth/dissociate/terms/posterior_cingulate/ventromedial_prefrontal
+curl https://bloggermandolin.com/neurosynth/dissociate/terms/ventromedial_prefrontal/posterior_cingulate
 ```
 
 **By coordinates**
 
 ```bash
-curl https://<your-app>.onrender.com/dissociate/locations/0_-52_26/-2_50_-6
-curl https://<your-app>.onrender.com/dissociate/locations/-2_50_-6/0_-52_26
+curl https://bloggermandolin.com/neurosynth/dissociate/locations/0_-52_26/-2_50_-6
+curl https://bloggermandolin.com/neurosynth/dissociate/locations/-2_50_-6/0_-52_26
 ```
 
 ---
