@@ -17,9 +17,11 @@ def get_engine():
     # Normalize old 'postgres://' scheme to 'postgresql://'
     if db_url.startswith("postgres://"):
         db_url = "postgresql://" + db_url[len("postgres://"):]
+    # Ensure new connections default to the ns schema
     _engine = create_engine(
         db_url,
         pool_pre_ping=True,
+        connect_args={"options": "-csearch_path=ns,public"},
     )
     return _engine
 
@@ -42,6 +44,73 @@ def create_app():
     def get_studies_by_coordinates(coords):
         x, y, z = map(int, coords.split("_"))
         return jsonify([x, y, z])
+
+    @app.get("/dissociate/terms/<term_a>/<term_b>", endpoint="dissociate_terms")
+    def dissociate_terms(term_a, term_b):
+        # Get DB engine
+        eng = get_engine()
+
+        # Query for studies that mention term_a but do NOT mention term_b
+        # Uses PostGIS to return representative coordinates for each study.
+        with eng.begin() as conn:
+            # Ensure schema
+            conn.execute(text("SET search_path TO ns, public;"))
+
+            # Use tsvector/plainto_tsquery to match normalized terms (handles tfidf prefixes)
+            # Replace underscores with spaces when building the tsquery.
+            rows = conn.execute(text(
+                """
+                SELECT DISTINCT at.study_id
+                FROM ns.annotations_terms at
+                WHERE to_tsvector('english', regexp_replace(at.term, '^terms_[^_]+__', '', 'g'))
+                      @@ plainto_tsquery('english', :term_a)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM ns.annotations_terms at2
+                      WHERE at2.study_id = at.study_id
+                        AND to_tsvector('english', regexp_replace(at2.term, '^terms_[^_]+__', '', 'g'))
+                            @@ plainto_tsquery('english', :term_b)
+                  )
+                LIMIT 100
+                """
+            ), {"term_a": term_a.replace("_", " "), "term_b": term_b.replace("_", " ")}).all()
+
+            study_ids = [r[0] for r in rows]
+
+            # Return list of study ids
+            return jsonify(study_ids)
+
+    @app.get("/dissociate/locations/<coords_a>/<coords_b>", endpoint="dissociate_locations")
+    def dissociate_locations(coords_a, coords_b):
+        # Parse MNI coordinates from 'x_y_z' strings
+        x1, y1, z1 = map(float, coords_a.split("_"))
+        x2, y2, z2 = map(float, coords_b.split("_"))
+
+        # Get DB engine
+        eng = get_engine()
+
+        # Use PostGIS ST_DWithin to find studies that have a coordinate near point A
+        # but not near point B. Radius is in the same units as geom (default 8 mm).
+        radius = 8
+        with eng.begin() as conn:
+            conn.execute(text("SET search_path TO ns, public;"))
+            # Use SRID-aware points to avoid geometry type / SRID mismatches
+            rows = conn.execute(text(
+                """
+                SELECT DISTINCT c1.study_id
+                FROM ns.coordinates c1
+                WHERE ST_DWithin(c1.geom, ST_SetSRID(ST_MakePoint(:x1, :y1, :z1), ST_SRID(c1.geom)), :radius)
+                    AND NOT EXISTS (
+                        SELECT 1 FROM ns.coordinates c2
+                        WHERE c2.study_id = c1.study_id
+                            AND ST_DWithin(c2.geom, ST_SetSRID(ST_MakePoint(:x2, :y2, :z2), ST_SRID(c2.geom)), :radius)
+                    )
+                LIMIT 200
+                """
+            ), {"x1": x1, "y1": y1, "z1": z1, "x2": x2, "y2": y2, "z2": z2, "radius": radius}).all()
+
+            study_ids = [r[0] for r in rows]
+            # Return list of study ids
+            return jsonify(study_ids)
 
     @app.get("/test_db", endpoint="test_db")
     
