@@ -51,7 +51,7 @@ def create_app():
         eng = get_engine()
 
         # Query for studies that mention term_a but do NOT mention term_b
-        # Uses PostGIS to return representative coordinates for each study.
+        # Include study titles from metadata table
         with eng.begin() as conn:
             # Ensure schema
             conn.execute(text("SET search_path TO ns, public;"))
@@ -60,8 +60,9 @@ def create_app():
             # Replace underscores with spaces when building the tsquery.
             rows = conn.execute(text(
                 """
-                SELECT DISTINCT at.study_id
+                SELECT DISTINCT at.study_id, m.title
                 FROM ns.annotations_terms at
+                LEFT JOIN ns.metadata m ON at.study_id = m.study_id
                 WHERE to_tsvector('english', regexp_replace(at.term, '^terms_[^_]+__', '', 'g'))
                       @@ plainto_tsquery('english', :term_a)
                   AND NOT EXISTS (
@@ -74,10 +75,10 @@ def create_app():
                 """
             ), {"term_a": term_a.replace("_", " "), "term_b": term_b.replace("_", " ")}).all()
 
-            study_ids = [r[0] for r in rows]
+            results = [{"study_id": r[0], "title": r[1]} for r in rows]
 
-            # Return list of study ids
-            return jsonify(study_ids)
+            # Return list of studies with titles
+            return jsonify(results)
 
     @app.get("/dissociate/locations/<coords_a>/<coords_b>", endpoint="dissociate_locations")
     def dissociate_locations(coords_a, coords_b):
@@ -96,8 +97,9 @@ def create_app():
             # Use SRID-aware points to avoid geometry type / SRID mismatches
             rows = conn.execute(text(
                 """
-                SELECT DISTINCT c1.study_id
+                SELECT DISTINCT c1.study_id, m.title
                 FROM ns.coordinates c1
+                LEFT JOIN ns.metadata m ON c1.study_id = m.study_id
                 WHERE ST_DWithin(c1.geom, ST_SetSRID(ST_MakePoint(:x1, :y1, :z1), ST_SRID(c1.geom)), :radius)
                     AND NOT EXISTS (
                         SELECT 1 FROM ns.coordinates c2
@@ -108,9 +110,9 @@ def create_app():
                 """
             ), {"x1": x1, "y1": y1, "z1": z1, "x2": x2, "y2": y2, "z2": z2, "radius": radius}).all()
 
-            study_ids = [r[0] for r in rows]
-            # Return list of study ids
-            return jsonify(study_ids)
+            results = [{"study_id": r[0], "title": r[1]} for r in rows]
+            # Return list of studies with titles
+            return jsonify(results)
 
     @app.get("/test_db", endpoint="test_db")
     
